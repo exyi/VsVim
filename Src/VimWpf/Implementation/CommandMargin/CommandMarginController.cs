@@ -346,6 +346,14 @@ namespace Vim.UI.Wpf.Implementation.CommandMargin
             try
             {
                 _margin.CommandLineTextBox.Text = commandLine;
+                if (string.IsNullOrEmpty(commandLine) || commandLine.Trim() == "-- INSERT --")
+                {
+                    _margin.Visibility = Visibility.Collapsed;
+                }
+                else if(_margin.Visibility != Visibility.Visible)
+                {
+                    _margin.Visibility = Visibility.Visible;
+                }
             }
             finally
             {
