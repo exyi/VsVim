@@ -11,6 +11,11 @@ namespace Vim.UnitTest
         public string[] LastStatusLong { get; set; }
         public string LastWarning { get; set; }
 
+        public void AddStackFrame(string value)
+        {
+            throw new NotImplementedException();
+        }
+
         public void OnError(string value)
         {
             LastError = value;
@@ -30,6 +35,11 @@ namespace Vim.UnitTest
         public void OnWarning(string value)
         {
             LastWarning = value;
+        }
+
+        public void PopStackFrame()
+        {
+            throw new NotImplementedException();
         }
     }
 }

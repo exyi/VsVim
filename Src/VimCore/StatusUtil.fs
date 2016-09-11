@@ -11,6 +11,7 @@ open System.ComponentModel.Composition
 
 type internal StatusUtil() = 
     let mutable _vimBuffer : IVimBufferInternal option = None
+    let mutable _callStack : string list = []
 
     member x.VimBuffer 
         with get () = _vimBuffer
@@ -21,11 +22,15 @@ type internal StatusUtil() =
         | None -> ()
         | Some buffer -> func buffer
 
+    member x.GetStackPrefix () = if _callStack.Length = 0 then "" else "at" + System.String.Join("\n", _callStack) + ":"
+
     interface IStatusUtil with
         member x.OnStatus msg = x.DoWithBuffer (fun buffer -> buffer.RaiseStatusMessage msg)
         member x.OnError msg = x.DoWithBuffer (fun buffer -> buffer.RaiseErrorMessage msg)
         member x.OnWarning msg = x.DoWithBuffer (fun buffer -> buffer.RaiseWarningMessage msg)
         member x.OnStatusLong msgSeq = x.DoWithBuffer (fun buffer -> msgSeq |> StringUtil.CombineWith System.Environment.NewLine |> buffer.RaiseStatusMessage)
+        member x.AddStackFrame description = _callStack <- description :: _callStack
+        member x.PopStackFrame () = _callStack <- List.tail _callStack
 
 type internal PropagatingStatusUtil() = 
     let _statusUtilList = List<IStatusUtil>()
@@ -37,6 +42,8 @@ type internal PropagatingStatusUtil() =
         member x.OnError msg = _statusUtilList |> Seq.iter (fun x -> x.OnError msg)
         member x.OnWarning msg = _statusUtilList |> Seq.iter (fun x -> x.OnWarning msg)
         member x.OnStatusLong msg = _statusUtilList |> Seq.iter (fun x -> x.OnStatusLong msg)
+        member x.AddStackFrame description = _statusUtilList |> Seq.iter (fun x -> x.AddStackFrame description) 
+        member x.PopStackFrame () = _statusUtilList |> Seq.iter (fun x -> x.PopStackFrame ()) 
 
 [<Export(typeof<IStatusUtilFactory>)>]
 type StatusUtilFactory () = 

@@ -351,6 +351,7 @@ type internal Vim
         _vimData : IVimData,
         _bulkOperations : IBulkOperations,
         _variableMap : VariableMap,
+        _userCommandMap: UserCommandMap,
         _editorToSettingSynchronizer : IEditorToSettingsSynchronizer,
         _statusUtilFactory : IStatusUtilFactory
     ) as this =
@@ -437,6 +438,7 @@ type internal Vim
         let globalSettings = GlobalSettings() :> IVimGlobalSettings
         let vimData = VimData(globalSettings) :> IVimData
         let variableMap = VariableMap()
+        let userCommandMap = UserCommandMap()
         let listeners = bufferCreationListeners |> List.ofSeq
         Vim(
             host,
@@ -452,6 +454,7 @@ type internal Vim
             vimData,
             bulkOperations,
             variableMap,
+            userCommandMap,
             editorToSettingSynchronizer,
             statusUtilFactory)
 
@@ -483,6 +486,8 @@ type internal Vim
                 x.UpdatedDisabledMode()
 
     member x.VariableMap = _variableMap
+
+    member x.UserCommandMap = _userCommandMap
 
     member x.VimBuffers = _vimBufferMap.Values |> Seq.map (fun (vimBuffer, _, _) -> vimBuffer) |> List.ofSeq
 
@@ -881,6 +886,7 @@ type internal Vim
             and set value = x.AutoLoadSessionData <- value
         member x.FocusedBuffer = x.FocusedBuffer
         member x.VariableMap = x.VariableMap
+        member x.UserCommandMap = x.UserCommandMap
         member x.VimBuffers = x.VimBuffers
         member x.VimData = _vimData
         member x.VimHost = _vimHost

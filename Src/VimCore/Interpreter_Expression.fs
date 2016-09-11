@@ -67,6 +67,11 @@ type VariableValue =
 
 type VariableMap = System.Collections.Generic.Dictionary<string, VariableValue>
 
+[<RequireQualifiedAccess>]
+type UserCommand = { Name: string; Body: string }
+
+type UserCommandMap = System.Collections.Generic.Dictionary<string, UserCommand>
+
 /// The set of events Vim supports.  Defined in ':help autocmd-events'
 ///
 /// Right now we only support a very limited set of autocmd events.  Enough to 
@@ -415,6 +420,9 @@ and [<RequireQualifiedAccess>] LineCommand =
     /// Add a new AutoCommand to the set of existing AutoCommand values
     | AddAutoCommand of AutoCommandDefinition
 
+    /// Two commands separated by `|`
+    | BarSeparated of LineCommand * LineCommand
+
     /// The :behave command to set common behaviors in certain environments
     | Behave of string
 
@@ -433,6 +441,13 @@ and [<RequireQualifiedAccess>] LineCommand =
     /// The :close command.  The bool value represents whether or not the 
     /// bang modifier was added
     | Close of bool
+
+    /// The :command. Lists all user defined commands.
+    | ListCommands
+    /// The :command. Shows specified command
+    | ShowCommand of name: string
+    /// The :command. Regsters custom command with specified name and body.
+    | DefCommand of name: string * body: string * force: bool
 
     /// Copy the specific line range to the given position.  The first line range is the 
     /// source and the second is the destination.  The last entry is an optional count
@@ -683,6 +698,9 @@ and [<RequireQualifiedAccess>] LineCommand =
 
     /// Unmap the key notation in the given modes
     | UnmapKeys of string * KeyRemapMode list * KeyMapArgument list
+
+    /// Invokes user command or prints error if command was not found.
+    | UserCommand of command: string * args: string
 
     /// Write the 
     ///  - The line range to write out

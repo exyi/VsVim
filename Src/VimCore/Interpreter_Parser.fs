@@ -1537,6 +1537,27 @@ type Parser
             | _ -> LineCommand.ParseError "Error"
         getNames (fun x -> x)
 
+    /// Parse :command command
+    /// Just :command is ListCommand
+    /// :command <name>  is ShowCommand nane
+    /// :command <name> <body> is DefCommand (name, body)
+    member x.ParseCommand() =
+        let hasBang = x.ParseBang()
+        x.SkipBlanks()
+        match _tokenizer.CurrentTokenKind with
+        | TokenKind.Word name ->
+            _tokenizer.MoveNextToken()
+            x.SkipBlanks()
+            use reset = _tokenizer.SetTokenizerFlagsScoped TokenizerFlags.AllowDoubleQuote
+            // TODO: arg count
+            match _tokenizer.CurrentTokenKind with
+            | TokenKind.EndOfLine -> LineCommand.ShowCommand name
+            | _ -> 
+                let body = x.ParseRestOfLine()
+                LineCommand.DefCommand (name, body, hasBang)
+        | TokenKind.EndOfLine -> LineCommand.ListCommands
+        | _ -> LineCommand.ParseError Resources.Parser_Error
+
     member x.ParseQuickFixNext count =
         let hasBang = x.ParseBang()
         LineCommand.QuickFixNext (count, hasBang)
@@ -1971,6 +1992,12 @@ type Parser
         let hasBang = x.ParseBang()
         LineCommand.Quit hasBang
 
+    member x.ParseUserCommand name = 
+        x.SkipBlanks()
+        match _tokenizer.CurrentTokenKind with
+        | TokenKind.EndOfLine -> LineCommand.UserCommand(name, "")
+        | _ -> LineCommand.ParseError "Arguments are not currently supported on custom commands." // TODO: arguments
+
     /// Parse out the :display and :registers command.  Just takes a single argument 
     /// which is the register name
     member x.ParseDisplayRegisters () = 
@@ -2033,11 +2060,16 @@ type Parser
                 else
                     x.SkipBlanks()
 
+                    match _tokenizer.CurrentTokenKind with
+                    // another command
+                    | TokenKind.Character('|') ->
+                        _tokenizer.MoveNextChar();
+                        x.SkipBlanks()
+                        LineCommand.BarSeparated(lineCommand, x.ParseSingleLine())
+                    | TokenKind.EndOfLine -> lineCommand
                     // If there are still characters then it's illegal trailing characters
-                    if not _tokenizer.IsAtEndOfLine then
-                        LineCommand.ParseError Resources.CommandMode_TrailingCharacters
-                    else
-                        lineCommand
+                    | _ -> LineCommand.ParseError Resources.CommandMode_TrailingCharacters 
+
             x.MoveToNextLine() |> ignore
             lineCommand
 
@@ -2063,6 +2095,7 @@ type Parser
                 | "cnoremap"-> noRange (fun () -> x.ParseMapKeysNoRemap false [KeyRemapMode.Command])
                 | "cnext" -> handleCount x.ParseQuickFixNext
                 | "cprevious" -> handleCount x.ParseQuickFixPrevious
+                | "command" -> noRange x.ParseCommand
                 | "copy" -> x.ParseCopyTo lineRange 
                 | "cunmap" -> noRange (fun () -> x.ParseMapUnmap false [KeyRemapMode.Command])
                 | "delete" -> x.ParseDelete lineRange
@@ -2167,7 +2200,7 @@ type Parser
                 | "&" -> x.ParseSubstituteRepeat lineRange SubstituteFlags.None
                 | "~" -> x.ParseSubstituteRepeat lineRange SubstituteFlags.UsePreviousSearchPattern
                 | "!" -> noRange (fun () -> x.ParseShellCommand())
-                | _ -> LineCommand.ParseError Resources.Parser_Error
+                | command -> x.ParseUserCommand command
 
             handleParseResult parseResult
 

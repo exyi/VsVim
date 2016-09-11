@@ -102,6 +102,10 @@ type IStatusUtil =
     /// Raised when there is a warning message that needs to be reported
     abstract OnWarning : string -> unit 
 
+    abstract AddStackFrame : string -> unit
+
+    abstract PopStackFrame : unit -> unit
+
 /// Abstracts away VsVim's interaction with the file system to facilitate testing
 type IFileSystem =
 
@@ -3926,7 +3930,7 @@ type IVimHost =
     /// Loads the new file into a new existing window
     abstract LoadFileIntoNewWindow : filePath : string -> bool
 
-    /// Run the host specific make operation
+    /// Run the host specific make operailing tion
     abstract Make : jumpToFirstError : bool -> arguments : string -> unit
 
     /// Move the focus to the ITextView in the open document in the specified direction
@@ -4092,6 +4096,8 @@ and IVim =
 
     /// The variable map for this IVim instance
     abstract VariableMap : VariableMap
+
+    abstract UserCommandMap : UserCommandMap
 
     abstract VimData : IVimData 
 

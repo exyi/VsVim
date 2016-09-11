@@ -508,6 +508,29 @@ type VimInterpreter
                 // Setting the global directory will clear out the local directory for the window
                 _vimBuffer.CurrentDirectory <- Some directoryPath
 
+    member x.RunDefCommand name body force =
+        let alreadyContains = _vim.UserCommandMap.ContainsKey(name);
+        if alreadyContains && not force then _statusUtil.OnError (Resources.Interpreter_CommandAlreadyExists name)
+        else _vim.UserCommandMap.[name] <- { UserCommand.Name = name; Body = body }
+
+    member x.RunShowCommand name = 
+        let command = _vim.UserCommandMap.TryGetValue(name)
+        match command with
+        | (true, { Name = name; Body = body }) -> _statusUtil.OnStatus(body)
+        | (false, _) -> _statusUtil.OnError(Resources.Interpreter_CommandDoesNotExists name)
+
+    member x.RunListCommands () =
+        _vim.UserCommandMap.Values
+        |> Seq.sortBy (fun c -> c.Name)
+        |> Seq.map (fun c -> sprintf "%s\t%s" c.Name c.Body)
+        |> _statusUtil.OnStatusLong
+
+    member x.RunUserCommand name arg =
+        let command = _vim.UserCommandMap.TryGetValue(name)
+        match command with
+        | (true, { Name = name; Body = body }) -> _statusUtil.AddStackFrame (sprintf "command %s" name); x.RunScript([| body |]); _statusUtil.PopStackFrame()
+        | (false, _) -> _statusUtil.OnError(Resources.Interpreter_CommandDoesNotExists name) 
+
     member x.RunCopyOrMoveTo sourceLineRange destLineRange count transactionName editOperation = 
 
         x.RunWithLineRangeOrDefault sourceLineRange DefaultLineRange.CurrentLine (fun sourceLineRange ->
@@ -1703,6 +1726,10 @@ type VimInterpreter
         | LineCommand.Call callInfo -> x.RunCall callInfo
         | LineCommand.ChangeDirectory path -> x.RunChangeDirectory path
         | LineCommand.ChangeLocalDirectory path -> x.RunChangeLocalDirectory path
+        | LineCommand.DefCommand (name, body, force) -> x.RunDefCommand name body force
+        | LineCommand.ShowCommand (name) -> x.RunShowCommand name
+        | LineCommand.ListCommands -> x.RunListCommands()
+        | LineCommand.UserCommand (name, arguments) -> x.RunUserCommand name arguments
         | LineCommand.CopyTo (sourceLineRange, destLineRange, count) -> x.RunCopyTo sourceLineRange destLineRange count
         | LineCommand.ClearKeyMap (keyRemapModes, mapArgumentList) -> x.RunClearKeyMap keyRemapModes mapArgumentList
         | LineCommand.Close hasBang -> x.RunClose hasBang
