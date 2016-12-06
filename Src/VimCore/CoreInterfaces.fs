@@ -743,6 +743,9 @@ type MotionResultFlags =
     /// is maintained
     | EndOfLine = 0x10
 
+    /// When used as a delete argument force a big delete
+    | BigDelete = 0x20
+
 /// Information about the type of the motion this was.
 [<RequireQualifiedAccess>]
 [<NoComparison>]
@@ -1363,8 +1366,8 @@ module KeyInputSetUtil =
     let OfSeq sequence = 
         match Seq.length sequence with
         | 0 -> KeyInputSet.Empty
-        | 1 -> KeyInputSet.OneKeyInput (Seq.nth 0 sequence)
-        | 2 -> KeyInputSet.TwoKeyInputs ((Seq.nth 0 sequence),(Seq.nth 1 sequence))
+        | 1 -> KeyInputSet.OneKeyInput (Seq.item 0 sequence)
+        | 2 -> KeyInputSet.TwoKeyInputs ((Seq.item 0 sequence),(Seq.item 1 sequence))
         | _ -> sequence |> List.ofSeq |> KeyInputSet.ManyKeyInputs 
 
     let OfList list = 
@@ -1373,7 +1376,7 @@ module KeyInputSetUtil =
         | [ki] -> KeyInputSet.OneKeyInput ki
         | _ -> 
             match list.Length with
-            | 2 -> KeyInputSet.TwoKeyInputs ((List.nth list 0),(List.nth list 1))
+            | 2 -> KeyInputSet.TwoKeyInputs ((List.item 0 list),(List.item 1 list))
             | _ -> KeyInputSet.ManyKeyInputs list
 
     let OfChar c = c |> KeyInputUtil.CharToKeyInput |> KeyInputSet.OneKeyInput
@@ -2823,6 +2826,9 @@ type InsertCommand  =
     /// Move the caret in the given direction by a whole word
     | MoveCaretByWord of Direction
 
+    /// Move the caret to the end of the line
+    | MoveCaretToEndOfLine
+
     /// Replace the character under the caret with the specified value
     | Replace of char
 
@@ -2882,6 +2888,7 @@ type InsertCommand  =
         | InsertCommand.MoveCaret _ -> None
         | InsertCommand.MoveCaretWithArrow _ -> None
         | InsertCommand.MoveCaretByWord _ -> None
+        | InsertCommand.MoveCaretToEndOfLine -> None
         | InsertCommand.Replace c -> Some (TextChange.Combination ((TextChange.DeleteRight 1), (TextChange.Insert (c.ToString()))))
         | InsertCommand.Overwrite s -> Some (TextChange.Replace s)
         | InsertCommand.ShiftLineLeft -> None

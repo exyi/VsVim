@@ -860,6 +860,10 @@ type internal MotionUtil
                 MotionKind = MotionKind.LineWise 
                 DesiredColumn = column }
 
+    member x.ApplyBigDelete (result : MotionResult) =
+        let flags = result.MotionResultFlags ||| MotionResultFlags.BigDelete
+        { result with MotionResultFlags = flags }
+
     /// Linewise motions often need to deal with the VisualSnapshot of the ITextView because
     /// they see folded regions as single lines vs. the many of which are actually represented
     /// within the fold.  
@@ -1044,7 +1048,7 @@ type internal MotionUtil
     /// Get the motion between the provided two lines.  The motion will be linewise
     /// and have a column of the first non-whitespace character.  If the 'startofline'
     /// option is not set it will keep the original column
-    member x.LineToLineFirstNonBlankMotion (startLine : ITextSnapshotLine) (endLine : ITextSnapshotLine) = 
+    member x.LineToLineFirstNonBlankMotion (flags : MotionResultFlags) (startLine : ITextSnapshotLine) (endLine : ITextSnapshotLine) = 
 
         // Get the column based on the 'startofline' option
         let column = 
@@ -1061,7 +1065,7 @@ type internal MotionUtil
                 if startLine.LineNumber <= endLine.LineNumber then startLine, endLine, true 
                 else endLine, startLine, false
             (SnapshotLineRangeUtil.CreateForLineRange startLine endLine, isForward)
-        MotionResult.CreateExEx range.ExtentIncludingLineBreak isForward MotionKind.LineWise MotionResultFlags.None column
+        MotionResult.CreateExEx range.ExtentIncludingLineBreak isForward MotionKind.LineWise flags column
 
     /// Get the block span for the specified char at the given context point
     member x.GetBlock (blockKind : BlockKind) contextPoint = 
@@ -1265,7 +1269,7 @@ type internal MotionUtil
             let column = SnapshotPointUtil.GetColumn virtualPoint.Position
             let span = SnapshotSpan(startPoint, endPoint)
             let isForward = caretPoint = startPoint
-            MotionResult.Create span isForward MotionKind.CharacterWiseExclusive |> Some
+            MotionResult.CreateEx span isForward MotionKind.CharacterWiseExclusive MotionResultFlags.BigDelete |> Some
 
     /// Motion from the caret to the given mark within the ITextBuffer.  Because this uses
     /// absolute positions and not counts we can operate on the edit buffer and don't need
@@ -1306,9 +1310,10 @@ type internal MotionUtil
             line
             |> Util.VimLineToTssLine
             |> x.CurrentSnapshot.GetLineFromLineNumber
-            |> x.LineToLineFirstNonBlankMotion x.CaretLine
+            |> x.LineToLineFirstNonBlankMotion MotionResultFlags.None x.CaretLine
+            |> x.ApplyBigDelete
             |> Some
-        | None -> x.MatchingToken()
+        | None -> x.MatchingToken() |> Option.map x.ApplyBigDelete
 
     /// Find the matching token for the next token on the current line 
     member x.MatchingToken() = 
@@ -1378,7 +1383,7 @@ type internal MotionUtil
 
             // Get the span of the all motion
             let span = 
-                let last = List.nth all (all.Length - 1)
+                let last = List.item (all.Length - 1) all
                 SnapshotSpan (head.Start, last.End)
 
             // The 'ap' motion considers blank lines to be white space
@@ -1521,7 +1526,7 @@ type internal MotionUtil
             | head :: tail ->
 
                 let span = 
-                    let last = List.nth sentences (sentences.Length - 1)
+                    let last = List.item (sentences.Length - 1) sentences
                     SnapshotSpan(head.Start, last.End)
 
                 // The 'as' motion considers anything between the SnapshotSpan of a sentence to
@@ -1543,7 +1548,9 @@ type internal MotionUtil
                 // Include the preceding white space in the Span
                 let includePrecedingWhiteSpace () =
                     let mutable column = SnapshotColumn(span.Start)
-                    let mutable before = column.Subtract 1
+                    let mutable before = 
+                        if SnapshotPointUtil.IsStartPoint column.Point then column
+                        else column.Subtract 1
                     while column.Point.Position > 0 && _textObjectUtil.IsSentenceWhiteSpace sentenceKind before do
                         column <- before
                         before <- column.Subtract 1
@@ -1586,7 +1593,7 @@ type internal MotionUtil
 
             // Get the span of the text object
             let span =
-                let last = List.nth all (all.Length - 1)
+                let last = List.item (all.Length - 1) all
                 SnapshotSpan(firstSpan.Start, last.End)
 
             // Calculate the white space after the last item.  Line breaks shouldn't be included
@@ -2271,9 +2278,9 @@ type internal MotionUtil
 
         let endLine = 
             match numberOpt with
-            | Some number ->  SnapshotUtil.GetLineOrFirst x.CurrentSnapshot (Util.VimLineToTssLine number)
+            | Some number ->  SnapshotUtil.GetLineOrLast x.CurrentSnapshot (Util.VimLineToTssLine number)
             | None -> SnapshotUtil.GetFirstLine x.CurrentSnapshot
-        x.LineToLineFirstNonBlankMotion x.CaretLine endLine
+        x.LineToLineFirstNonBlankMotion MotionResultFlags.MaintainCaretColumn x.CaretLine endLine
 
     /// Implements the 'G' motion
     ///
@@ -2286,7 +2293,7 @@ type internal MotionUtil
             match numberOpt with
             | Some number ->  SnapshotUtil.GetLineOrLast x.CurrentSnapshot (Util.VimLineToTssLine number)
             | None -> SnapshotUtil.GetLastLine x.CurrentSnapshot 
-        x.LineToLineFirstNonBlankMotion x.CaretLine endLine
+        x.LineToLineFirstNonBlankMotion MotionResultFlags.MaintainCaretColumn x.CaretLine endLine
 
     /// Go to the last non-blank character on the 'count - 1' line
     member x.LastNonBlankOnLine count = 
@@ -2460,7 +2467,7 @@ type internal MotionUtil
             |> Seq.map SnapshotSpanUtil.GetStartPoint
             |> SeqUtil.headOrDefault (SnapshotUtil.GetEndPoint x.CurrentSnapshot)
         let span = SnapshotSpan(x.CaretPoint, endPoint)
-        MotionResult.Create span true MotionKind.CharacterWiseExclusive
+        MotionResult.CreateEx span true MotionKind.CharacterWiseExclusive MotionResultFlags.BigDelete
 
     member x.SentenceBackward count = 
         _jumpList.Add x.CaretPoint
@@ -2470,7 +2477,7 @@ type internal MotionUtil
             |> Seq.map SnapshotSpanUtil.GetStartPoint
             |> SeqUtil.headOrDefault (SnapshotUtil.GetStartPoint x.CurrentSnapshot)
         let span = SnapshotSpan(startPoint, x.CaretPoint)
-        MotionResult.Create span false MotionKind.CharacterWiseExclusive
+        MotionResult.CreateEx span false MotionKind.CharacterWiseExclusive MotionResultFlags.BigDelete
 
     /// Implements the '}' motion
     member x.ParagraphForward count = 
@@ -2482,7 +2489,7 @@ type internal MotionUtil
             |> Seq.map SnapshotSpanUtil.GetStartPoint
             |> SeqUtil.headOrDefault (SnapshotUtil.GetEndPoint x.CurrentSnapshot)
         let span = SnapshotSpan(x.CaretPoint, endPoint)
-        MotionResult.Create span true MotionKind.CharacterWiseExclusive 
+        MotionResult.CreateEx span true MotionKind.CharacterWiseExclusive MotionResultFlags.BigDelete
 
     /// Implements the '{' motion
     member x.ParagraphBackward count = 
@@ -2494,7 +2501,7 @@ type internal MotionUtil
             |> Seq.map SnapshotSpanUtil.GetStartPoint
             |> SeqUtil.headOrDefault (SnapshotUtil.GetStartPoint x.CurrentSnapshot)
         let span = SnapshotSpan(startPoint, x.CaretPoint)
-        MotionResult.Create span false MotionKind.CharacterWiseExclusive
+        MotionResult.CreateEx span false MotionKind.CharacterWiseExclusive MotionResultFlags.BigDelete
 
     member x.QuotedString quoteChar = 
         match x.GetQuotedStringData quoteChar with
@@ -2594,7 +2601,7 @@ type internal MotionUtil
                     None
                 else
                     let span = SnapshotSpan(startPoint, endPoint)
-                    MotionResult.CreateExEx span isForward motionKind MotionResultFlags.None caretColumn |> Some
+                    MotionResult.CreateExEx span isForward motionKind MotionResultFlags.BigDelete caretColumn |> Some
 
         _vimData.ResumeDisplayPattern()
         motionResult

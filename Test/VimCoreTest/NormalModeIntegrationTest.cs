@@ -2075,6 +2075,33 @@ namespace Vim.UnitTest
             }
         }
 
+        public sealed class LineToLineMotionTest : NormalModeIntegrationTest
+        {
+            [Fact]
+            public void ColumnShorter()
+            {
+                Create("the dog", "the", "cat");
+                Vim.GlobalSettings.StartOfLine = false;
+                _textView.MoveCaretToLine(lineNumber: 0, column: 4);
+                _vimBuffer.Process("2G");
+                Assert.Equal(_textBuffer.GetPointInLine(line: 1, column: 2), _textView.GetCaretPoint());
+            }
+
+            /// <summary>
+            /// Issue 1854
+            /// </summary>
+            [Fact]
+            public void MaintainCaretColumn()
+            {
+                Create("the dog", "the", "cat");
+                Vim.GlobalSettings.StartOfLine = false;
+                var point = _textBuffer.GetPointInLine(line: 0, column: 4);
+                _textView.MoveCaretTo(point);
+                _vimBuffer.Process("2Gk");
+                Assert.Equal(point, _textView.GetCaretPoint());
+            }
+        }
+
         public sealed class LastSearchTest : NormalModeIntegrationTest
         {
             /// <summary>
@@ -4831,6 +4858,32 @@ namespace Vim.UnitTest
                 Assert.Equal("otg", _textBuffer.GetLine(0).GetText());
             }
 
+            /// <summary>
+            /// The search motion should always cause the 1-9 registers to be updated irrespective of the text of the 
+            /// delete.
+            /// </summary>
+            [Fact]
+            public void DeleteSmallWithSearchMotion()
+            {
+                Create("dog");
+                RegisterMap.GetRegister(1).UpdateValue("g");
+                _vimBuffer.Process(@"d/o", enter: true);
+                Assert.Equal("d", RegisterMap.GetRegister(1).StringValue);
+                Assert.Equal("g", RegisterMap.GetRegister(2).StringValue);
+                Assert.Equal("d", RegisterMap.GetRegister(RegisterName.SmallDelete).StringValue);
+            }
+
+            [Fact]
+            public void ChangeSmallWithSearchMotion()
+            {
+                Create("dog");
+                RegisterMap.GetRegister(1).UpdateValue("g");
+                _vimBuffer.Process(@"c/o", enter: true);
+                Assert.Equal("d", RegisterMap.GetRegister(1).StringValue);
+                Assert.Equal("g", RegisterMap.GetRegister(2).StringValue);
+                Assert.Equal("d", RegisterMap.GetRegister(RegisterName.SmallDelete).StringValue);
+            }
+
             [Fact]
             public void Issue1436()
             {
@@ -6773,6 +6826,26 @@ namespace Vim.UnitTest
                 _textView.MoveCaretToLine(2);
                 _vimBuffer.ProcessNotation(">i{");
                 Assert.Equal("    statement;", _textBuffer.GetLine(2).GetText());
+            }
+
+            [Fact]
+            public void Issue1738()
+            {
+                Create("dog", "tree");
+                _globalSettings.ClipboardOptions = ClipboardOptions.Unnamed;
+                _vimBuffer.Process("yy");
+                Assert.Equal("dog" + Environment.NewLine, RegisterMap.GetRegister(0).StringValue);
+                Assert.Equal("dog" + Environment.NewLine, RegisterMap.GetRegister(RegisterName.NewSelectionAndDrop(SelectionAndDropRegister.Star)).StringValue);
+            }
+
+            [Fact]
+            public void Issue1827()
+            {
+                Create("penny", "dog");
+                RegisterMap.SetRegisterValue(0, "cat");
+                _vimBuffer.Process("dd");
+                Assert.Equal("cat", RegisterMap.GetRegister(0).StringValue);
+                Assert.Equal("penny" + Environment.NewLine, RegisterMap.GetRegister(1).StringValue);
             }
         }
     }

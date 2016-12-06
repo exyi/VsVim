@@ -305,7 +305,7 @@ namespace Vim.UnitTest
 
         #endregion
 
-        #region LineRange
+        #region LineRangeSpecifier
 
         /// <summary>
         /// LineRange as SingleLine
@@ -335,36 +335,34 @@ namespace Vim.UnitTest
 
         #region LineSpecifier
 
-        /// <summary>
-        /// LineSpecifier as Number
-        /// </summary>
         public static LineSpecifier.Number AsNumber(this LineSpecifier lineSpecifier)
         {
             return (LineSpecifier.Number)lineSpecifier;
         }
 
-        /// <summary>
-        /// Is thise a Number with the specified value
-        /// </summary>
         public static bool IsNumber(this LineSpecifier lineSpecifier, int number)
         {
             return lineSpecifier.IsNumber && lineSpecifier.AsNumber().Item == number;
         }
 
-        /// <summary>
-        /// LineSpecifier as NextLineWithPattern
-        /// </summary>
         public static LineSpecifier.NextLineWithPattern AsNextLineWithPattern(this LineSpecifier lineSpecifier)
         {
             return (LineSpecifier.NextLineWithPattern)lineSpecifier;
         }
 
-        /// <summary>
-        /// LineSpecifier as PreviousLineWithPattern
-        /// </summary>
         public static LineSpecifier.PreviousLineWithPattern AsPreviousLineWithPattern(this LineSpecifier lineSpecifier)
         {
             return (LineSpecifier.PreviousLineWithPattern)lineSpecifier;
+        }
+
+        public static LineSpecifier.CurrentLineWithEndCount AsCurrentLineWithEndCount(this LineSpecifier lineSpecifier)
+        {
+            return (LineSpecifier.CurrentLineWithEndCount)lineSpecifier;
+        }
+
+        public static bool IsCurrentLineWithEndCount(this LineSpecifier lineSpecifier, int count)
+        {
+            return lineSpecifier.IsCurrentLineWithEndCount && lineSpecifier.AsCurrentLineWithEndCount().Item == count;
         }
 
         #endregion
@@ -1265,6 +1263,12 @@ namespace Vim.UnitTest
 
         #region ICommonOperations
 
+        public static void SetRegisterValue(this ICommonOperations operations, RegisterName name, RegisterOperation operation, RegisterValue value)
+        {
+            var opt = FSharpOption.Create(name);
+            operations.SetRegisterValue(opt, operation, value);
+        }
+
         public static void ShiftLineRangeLeft(this ICommonOperations operations, int count)
         {
             var number = operations.TextView.GetCaretLine().LineNumber;
@@ -1617,6 +1621,12 @@ namespace Vim.UnitTest
             return map.GetRegister(name);
         }
 
+        public static Register GetRegister(this IRegisterMap map, int number)
+        {
+            var name = RegisterNameUtil.NumberToRegister(number).Value;
+            return map.GetRegister(name);
+        }
+
         public static void Clear(this IRegisterMap map)
         {
             foreach (var name in NamedRegister.All)
@@ -1628,6 +1638,12 @@ namespace Vim.UnitTest
         public static void SetRegisterValue(this IRegisterMap map, char c, string value)
         {
             var register = GetRegister(map, c);
+            register.UpdateValue(value);
+        }
+
+        public static void SetRegisterValue(this IRegisterMap map, int n, string value)
+        {
+            var register = GetRegister(map, n);
             register.UpdateValue(value);
         }
 

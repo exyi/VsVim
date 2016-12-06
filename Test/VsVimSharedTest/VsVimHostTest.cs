@@ -55,6 +55,9 @@ namespace Vim.VisualStudio.UnitTest
             uint cookie = 42;
             vsMonitorSelection.Setup(x => x.AdviseSelectionEvents(It.IsAny<IVsSelectionEvents>(), out cookie)).Returns(VSConstants.S_OK);
 
+            var telemetryProvider = _factory.Create<ITelemetryProvider>(MockBehavior.Loose);
+            telemetryProvider.Setup(x => x.GetOrCreate(_vimApplicationSettings.Object, _dte.Object)).Returns(_factory.Create<ITelemetry>(MockBehavior.Loose).Object);
+
             var sp = _factory.Create<SVsServiceProvider>();
             sp.Setup(x => x.GetService(typeof(_DTE))).Returns(_dte.Object);
             sp.Setup(x => x.GetService(typeof(SVsUIShell))).Returns(_shell.Object);
@@ -73,7 +76,8 @@ namespace Vim.VisualStudio.UnitTest
                 _factory.Create<ISharedServiceFactory>(MockBehavior.Loose).Object,
                 _vimApplicationSettings.Object,
                 _extensionAdapterBroker.Object,
-                sp.Object);
+                sp.Object,
+                telemetryProvider.Object);
             _host = _hostRaw;
         }
 

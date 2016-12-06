@@ -49,6 +49,11 @@ namespace Vim.VisualStudio
         bool EnableExternalEditMonitoring { get; set; }
 
         /// <summary>
+        /// Do we track telemetry for this instance?
+        /// </summary>
+        bool EnableTelemetry { get; set; }
+
+        /// <summary>
         /// Do we want to enable vim style processing of tab and backspace
         /// </summary>
         bool UseEditorTabAndBackspace { get; set; }
@@ -108,6 +113,11 @@ namespace Vim.VisualStudio
         /// Is the bad key mapping issue introduced in 1.4.0 fixed on this installation
         /// </summary>
         bool KeyMappingIssueFixed { get; set; }
+
+        /// <summary>
+        /// The last version of VsVim used on this instance.
+        /// </summary>
+        string LastVersionUsed { get; set; }
 
         /// <summary>
         /// The set of CommandKeyBinding that VsVim unbound in the conflicting key dialog

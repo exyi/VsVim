@@ -245,6 +245,17 @@ namespace Vim.UnitTest
                 _vimBuffer.Process("i/v");
                 Assert.Equal(@"VARCHAR(MAX) = '<%= ""test"" %>'", _textBuffer.GetLine(0).GetText());
             }
+
+            [Fact]
+            public void Issue1812()
+            {
+                Create("dog");
+                _vimBuffer.Process(VimKey.Escape);
+                _vimBuffer.Process(@":imap ;; <end>;<cr>", enter: true);
+                _vimBuffer.Process("i;;");
+                Assert.Equal(new[] { "dog;", "" }, _textBuffer.GetLines());
+                Assert.Equal(_textBuffer.GetLine(1).Start, _textView.GetCaretPoint());
+            }
         }
 
         public sealed class PasteTest : InsertModeIntegrationTest
@@ -2590,7 +2601,7 @@ namespace Vim.UnitTest
                     _localSettings.ExpandTab = true;
                     _vimBuffer.ProcessNotation("<Tab> <Esc>");
                     _textView.MoveCaretTo(0);
-                    _textView.MoveCaretTo(5);
+                    _textView.MoveCaretTo(4);
                     _vimBuffer.ProcessNotation("i<BS><BS>");
                     Assert.Equal(" ", _textBuffer.GetLine(0).GetText());
                 }

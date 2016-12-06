@@ -280,6 +280,15 @@ type MaintainCaretColumn =
     /// the line 
     | EndOfLine
 
+[<RequireQualifiedAccess>]
+[<NoComparison>]
+type RegisterOperation = 
+    | Yank
+    | Delete
+
+    /// Force the operation to be treated like a big delete even if it's a small one.
+    | BigDelete
+
 /// This class abstracts out the operations that are common to normal, visual and 
 /// command mode.  It usually contains common edit and movement operations and very
 /// rarely will deal with caret operations.  That is the responsibility of the 
@@ -321,7 +330,7 @@ type ICommonOperations =
     /// the start point.
     ///
     /// This operation is performed against the visual buffer.  
-    abstract DeleteLines : startLine : ITextSnapshotLine -> maxCount : int -> register : Register -> unit
+    abstract DeleteLines : startLine : ITextSnapshotLine -> maxCount : int -> registerName : RegisterName option -> unit
 
     /// Ensure the view properties are met at the caret
     abstract EnsureAtCaret : viewFlags : ViewFlags -> unit
@@ -334,6 +343,9 @@ type ICommonOperations =
 
     /// Get the new line text which should be used for new lines at the given SnapshotPoint
     abstract GetNewLineText : SnapshotPoint -> string
+
+    /// Get the register to use based on the name provided to the operation.
+    abstract GetRegister : name : RegisterName option -> Register
 
     /// Get the indentation for a newly created ITextSnasphotLine.  The context line is
     /// is provided to calculate the indentation off of 
@@ -429,6 +441,9 @@ type ICommonOperations =
 
     /// Scrolls the number of lines given and keeps the caret in the view
     abstract ScrollLines : ScrollDirection -> count:int -> unit
+
+    /// Update the register with the specified value
+    abstract SetRegisterValue : name : RegisterName option -> operation : RegisterOperation -> value : RegisterValue -> unit
 
     /// Shift the block of lines to the left by shiftwidth * 'multiplier'
     abstract ShiftLineBlockLeft : SnapshotSpan seq -> multiplier : int -> unit

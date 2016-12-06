@@ -20,6 +20,7 @@
 *.ldf
 *.opendb
 Thumbs.db
+telemetry.txt
 
 # Project Files
 *.user
@@ -44,6 +45,7 @@ VimAll.sln.ide/
 VimCore.sln.ide/
 VsVim.sln.ide/
 vbcs.cache/
+.vs/
 
 # Place where dogfood drops get put into. 
 Dogfood/

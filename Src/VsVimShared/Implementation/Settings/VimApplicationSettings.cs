@@ -17,6 +17,7 @@ namespace Vim.VisualStudio.Implementation.Settings
         internal const string DefaultSettingsName = "DefaultSettings";
         internal const string DisplayControlCharsName = "DisplayControlChars";
         internal const string EnableExternalEditMonitoringName = "EnableExternalEditMonitoring";
+        internal const string EnableTelemetryName = "EnableTelemetry";
         internal const string VimRcLoadSettingName = "VimRcLoadSetting";
         internal const string HaveUpdatedKeyBindingsName = "HaveUpdatedKeyBindings";
         internal const string HaveNotifiedVimRcLoadName = "HaveNotifiedVimRcLoad";
@@ -29,6 +30,7 @@ namespace Vim.VisualStudio.Implementation.Settings
         internal const string UseEditorTabAndBackspaceName = "UseEditorTabAndBackspace";
         internal const string UseEditorCommandMarginName = "UseEditorCommandMargin";
         internal const string CleanMacrosName = "CleanMacros";
+        internal const string LastVersionUsedName = "LastVersionUsed";
         internal const string WordWrapDisplayName = "WordWrapDisplay";
         internal const string ErrorGetFormat = "Cannot get setting {0}";
         internal const string ErrorSetFormat = "Cannot set setting {0}";
@@ -210,6 +212,12 @@ namespace Vim.VisualStudio.Implementation.Settings
             set { SetBoolean(EnableExternalEditMonitoringName, value); }
         }
 
+        bool IVimApplicationSettings.EnableTelemetry
+        {
+            get { return GetBoolean(EnableTelemetryName, defaultValue: true); }
+            set { SetBoolean(EnableTelemetryName, value); }
+        }
+
         bool IVimApplicationSettings.UseEditorDefaults
         {
             get { return GetBoolean(UseEditorDefaultsName, defaultValue: true); }
@@ -280,6 +288,12 @@ namespace Vim.VisualStudio.Implementation.Settings
         {
             get { return GetRemovedBindings(); }
             set { SetRemovedBindings(value); }
+        }
+
+        string IVimApplicationSettings.LastVersionUsed
+        {
+            get { return GetString(LastVersionUsedName, null); }
+            set { SetString(LastVersionUsedName, value); }
         }
 
         event EventHandler<ApplicationSettingsEventArgs> IVimApplicationSettings.SettingsChanged
