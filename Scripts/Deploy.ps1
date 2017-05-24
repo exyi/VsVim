@@ -1,6 +1,6 @@
 param (
     [switch]$fast = $false, 
-    [string]$vsVersion = "")
+    [string]$vsDir = "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise")
 
 set-strictmode -version 2.0
 $ErrorActionPreference="Stop"
@@ -37,49 +37,58 @@ function test-vsixcontents() {
         write-error "Vsix doesn't exist"
     }
 
-    # Make a folder to hold the files
+    $expectedFiles = @(
+        "Colors.pkgdef",
+        "EditorUtils2010.dll",
+        "extension.vsixmanifest",
+        "License.rtf",
+        "Microsoft.ApplicationInsights.dll",
+        "telemetry.txt",
+        "Vim.Core.dll",
+        "Vim.UI.Wpf.dll",
+        "Vim.VisualStudio.Interfaces.dll",
+        "Vim.VisualStudio.Shared.dll",
+        "Vim.VisualStudio.Vs2012.dll",
+        "Vim.VisualStudio.Vs2013.dll",
+        "Vim.VisualStudio.Vs2015.dll",
+        "Vim.VisualStudio.Vs2017.dll",
+        "VsVim.dll",
+        "VsVim.pkgdef",
+        "VsVim_large.png",
+        "VsVim_small.png",
+        "catalog.json",
+        "manifest.json",
+        "[Content_Types].xml")
+
+    # Make a folder to hold the foundFiles
     $target = join-path ([IO.Path]::GetTempPath()) ([IO.Path]::GetRandomFileName())
     mkdir $target | out-null
     & $zip x "-o$target" $vsixPath | out-null
 
-    $files = gci $target | %{ $_.Name }
-    $expected = 19
-    if ($files.Count -ne $expected) { 
-        write-host "Wrong number of files in VSIX. Found ..."
-        foreach ($file in $files) {
-            write-host "`t$file"
+    $foundFiles = gci $target | %{ $_.Name }
+    if ($foundFiles.Count -ne $expectedFiles.Count) { 
+        write-host "Found $($foundFiles.Count) but expected $(expectedFiles.Count)"
+        write-host "Wrong number of foundFiles in VSIX." 
+        write-host "Extra foundFiles"
+        foreach ($file in $foundFiles) {
+            if (-not $expectedFiles.Contains($file)) {
+                write-host "`t$file"
+            }
         }
+
+        write-host "Missing foundFiles"
+        foreach ($file in $expectedFiles) {
+            if (-not $foundFiles.Contains($file)) {
+                write-host "`t$file"
+            }
+        }
+
         write-host "Location: $target"
-        write-error "Found $($files.Count) but expected $expected"
+        write-error "Found $($foundFiles.Count) but expected $expected"
     }
 
-    # The set of important files that are easy to miss 
-    #   - FSharp.Core.dll: We bind to the 4.0 version but 2012+ only installs
-    #     the 4.5 version that we can't bind to
-    #   - EditorUtils2010.dll: Not a part of the build but necessary.  Make
-    #     sure that it's found        
-    $expected = 
-        "EditorUtils2010.dll",
-        "Vim.Core.dll", 
-        "Vim.UI.Wpf.dll",
-        "Vim.VisualStudio.Vs2010.dll",
-        "Vim.VisualStudio.Vs2012.dll",
-        "Vim.VisualStudio.Vs2013.dll",
-        "Vim.VisualStudio.Vs2015.dll",
-        "Vim.VisualStudio.Interfaces.dll",
-        "Vim.VisualStudio.Shared.dll",
-        "VsVim.dll",
-        "Colors.pkgdef",
-        "VsVim.pkgdef",
-        "Microsoft.ApplicationInsights.dll",
-        "telemetry.txt"
-
-    foreach ($item in $expected) {
-        if (-not ($files -contains $item)) { 
-            write-error "Didn't found $item in the zip file ($target)"
-        }
-
-        # Look for dummy files that made it into the VSIX instead of the 
+    foreach ($item in $expectedFiles) {
+        # Look for dummy foundFiles that made it into the VSIX instead of the 
         # actual DLL 
         $itemPath = join-path $target $item
         if ($item.EndsWith("dll") -and ((get-item $itemPath).Length -lt 5kb)) {
@@ -100,17 +109,19 @@ function test-vsixcontents() {
 # Run all of the unit tests
 function test-unittests() { 
     $all = 
-        "Test\VimCoreTest\bin\Release\Vim.Core.UnitTest.dll",
-        "Test\VimWpfTest\bin\Release\Vim.UI.Wpf.UnitTest.dll",
-        "Test\VsVimSharedTest\bin\Release\Vim.VisualStudio.Shared.UnitTest.dll"
+        "Binaries\Release\VimCoreTest\Vim.Core.UnitTest.dll",
+        "Binaries\Release\VimWpfTest\Vim.UI.Wpf.UnitTest.dll",
+        "Binaries\Release\VsVimSharedTest\Vim.VisualStudio.Shared.UnitTest.dll"
     $xunit = join-path $rootPath "Tools\xunit.console.clr4.x86.exe"
 
-    write-host "Running Unit Tests"
     foreach ($file in $all) { 
         $name = split-path -leaf $file
         write-host -NoNewLine ("`t{0}: " -f $name)
         $output = & $xunit $file /silent
-        test-return
+        if ($LASTEXITCODE -ne 0) {
+            write-host "& $xunit $file /silent"
+            write-error "Command failed with code $LASTEXITCODE"
+        }
         $last = $output[$output.Count - 1] 
         write-host $last
     }
@@ -147,7 +158,7 @@ function test-version() {
     }
 
     $data = [xml](gc "Src\VsVim\source.extension.vsixmanifest")
-    $manifestVersion = $data.Vsix.Identifier.Version
+    $manifestVersion = $data.PackageManifest.Metadata.Identity.Version
     if ($manifestVersion -ne $version) { 
         $msg = "The version {0} doesn't match up with the manifest version of {1}" -f $version, $manifestVersion
         write-error $msg
@@ -184,7 +195,7 @@ function clean-vsixcontents() {
     build-release "Src\CleanVsix\CleanVsix.csproj"
 
     write-host "`tCleaning contents"
-    & Src\CleanVsix\bin\Release\CleanVsix.exe "$vsixPath"
+    & Binaries\Release\CleanVsix\CleanVsix.exe "$vsixPath"
 }
 
 function build-vsix() {
@@ -192,7 +203,7 @@ function build-vsix() {
         mkdir Deploy 2>&1 | out-null
     }
     rm Deploy\VsVim* 
-    copy "Src\VsVim\bin\Release\VsVim.vsix" "Deploy\VsVim.orig.vsix"
+    copy "Binaries\Release\VsVim\VsVim.vsix" "Deploy\VsVim.orig.vsix"
     copy "Deploy\VsVim.orig.vsix" "Deploy\VsVim.vsix"
     clean-vsixcontents (resolve-path "Deploy\VsVim.vsix")
     copy "Deploy\VsVim.vsix" "Deploy\VsVim.zip"
@@ -201,39 +212,32 @@ function build-vsix() {
 pushd $rootPath
 try {
 
-    $msbuild = join-path ${env:SystemRoot} "microsoft.net\framework\v4.0.30319\msbuild.exe"
+    # TODO: Using a path to VS is lazy.  Should use the VS locate APIs to find the 
+    # instance.  This lets us get back to a method of using vsVersion as the starting
+    # point.
+    $vsVersion = "15.0"
+    if ($vsDir -eq "") { 
+        write-host "Need a path to a Visual Studio 2017 installation."
+        write-host "Example: C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise"
+        write-error "Exiting"
+        exit 1
+    }
+
+    $msbuild = join-path $vsDir "MSBuild\15.0\Bin\msbuild.exe"
     if (-not (test-path $msbuild)) {
         write-error "Can't find msbuild.exe"
+        exit 1
     }
 
-
-    # First step is to calculate the version of Visual Studio we will be 
-    # using to build VsVim.  The default used by MsBuild may be referring
-    # to a version not installed on the machine.   
-    if ($vsVersion -eq "") { 
-        for ($i = 9; $i -lt 30; $i++) { 
-            $str = "{0}.0" -f $i
-            if (test-vsinstall $str) { 
-                $vsVersion = $str
-                break
-            }
-        }
-    }
-
-    write-host "Using Visual Studio $vsVersion to build"
-
-    if (($vsVersion -eq $null) -or -not (test-vsinstall $vsVersion)) { 
-        write-host "Could not detect a version of Visual Studio"
-        return
-    }
+    write-host "Using MSBuild $msbuild"
 
     # Next step is to clean out all of the projects 
     if (-not $fast) { 
         write-host "Cleaning Projects"
-        build-clean Src\VsSpecific\Vs2010\Vs2010.csproj
         build-clean Src\VsSpecific\Vs2012\Vs2012.csproj
         build-clean Src\VsSpecific\Vs2013\Vs2013.csproj
         build-clean Src\VsSpecific\Vs2015\Vs2015.csproj
+        build-clean Src\VsSpecific\Vs2017\Vs2017.csproj
         build-clean Src\VsVim\VsVim.csproj
     }
 

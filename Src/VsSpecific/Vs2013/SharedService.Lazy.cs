@@ -1,5 +1,4 @@
 // !!! Generated file. Do not edit directly !!!
-
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.Composition;
@@ -12,7 +11,7 @@ using Microsoft.VisualStudio.Shell;
 
 namespace Vim.VisualStudio.Vs2013
 {
-    internal partial class SharedService
+    internal partial class SharedService 
     {
         private readonly IVsRunningDocumentTable _vsRunningDocumentTable;
 
